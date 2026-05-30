@@ -18,9 +18,9 @@
 截图放好后，取消下面三行的注释即可展示：
 
 
-[开始页](docs/images/start-page.png)
-[面试对话](docs/images/interview-chat.png)
-[总结报告](docs/images/summary-report.png)
+![开始页](docs/images/start-page.png)
+![面试对话](docs/images/interview-chat.png)
+![总结报告](docs/images/summary-report.png)
 
 
 ## 核心功能
