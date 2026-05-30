@@ -406,6 +406,9 @@ def ensure_messages(
     resume_context: str,
 ) -> None:
     current_config = (role, difficulty, training_mode, question_source, resume_context)
+    previous_config = st.session_state.get("interview_config")
+    is_config_changed = previous_config is not None and previous_config != current_config
+    is_restoring_history = st.session_state.get("pending_history_messages") is not None
     question_context = question_context_for(question_bank, role, difficulty)
     system_prompt = build_system_prompt(
         role=role,
@@ -417,10 +420,14 @@ def ensure_messages(
     )
     if (
         "messages" not in st.session_state
-        or st.session_state.get("interview_config") != current_config
+        or previous_config != current_config
     ):
         st.session_state.messages = [SystemMessage(content=system_prompt)]
         st.session_state.interview_config = current_config
+        if is_config_changed and not is_restoring_history:
+            st.session_state.pop("current_session_id", None)
+            st.session_state.pop("interview_report", None)
+            st.session_state.interview_started = False
     else:
         st.session_state.messages[0] = SystemMessage(content=system_prompt)
 
@@ -655,7 +662,7 @@ if st.session_state.get("pending_history_messages") is not None:
     st.session_state.pop("pending_history_messages", None)
 
 if not st.session_state.get("interview_started"):
-    st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。")
+    st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。如果刚切换了岗位、难度或题目来源，需要重新开始一轮新面试。")
     st.markdown(
         """
 ### 你可以用它做什么
