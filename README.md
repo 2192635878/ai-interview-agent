@@ -9,17 +9,10 @@
 
 ## 项目截图
 
-建议放 3 张截图，保存到 `docs/images/` 目录：
-
-1. `start-page.png`：开始页，展示岗位、模式、模型配置和开始面试按钮。
-2. `interview-chat.png`：面试对话页，展示 AI 提问、用户回答、评分和追问。
-3. `summary-report.png`：总结报告页，展示总体评分、薄弱知识点和复习建议。
-
-截图放好后，取消下面三行的注释即可展示：
-
-
 ![开始页](docs/images/start-page.png)
+
 ![面试对话](docs/images/interview-chat.png)
+
 ![总结报告](docs/images/summary-report.png)
 
 
@@ -53,6 +46,7 @@
 - Python
 - Streamlit
 - LangChain
+- SQLite
 - pypdf
 - DeepSeek API
 
@@ -129,9 +123,9 @@ BASE_URL = "https://api.deepseek.com"
 
 - 增加固定面试轮次和“继续下一题”按钮，让流程更结构化。
 - 接入 RAG 面经知识库，从面经、岗位 JD 和学习笔记中检索问题。
-- 使用 SQLite 或 Redis 保存历史面试记录。
+- 增加题库管理页面，支持上传、预览和切换自定义题库。
 - 增加 Dockerfile，支持 Zeabur 等平台容器化部署。
 
 ## 简历描述示例
 
-基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、本地题库与 LLM 动态出题、DeepSeek Flash/Pro 模型切换、思考模式控制、多轮上下文记忆、回答质量评分、面试记录导出和结构化总结报告生成，并部署至 Streamlit Community Cloud 提供在线访问。
+基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、结构化本地题库、LLM 动态出题、简历上传解析、多轮上下文记忆、回答质量评分、历史会话保存、面试记录导出和结构化总结报告生成，并部署至 Streamlit Community Cloud 提供在线访问。
