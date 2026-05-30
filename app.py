@@ -29,6 +29,7 @@ MODEL_OPTIONS: Dict[str, str] = {
 }
 REASONING_EFFORTS = ["high", "max"]
 MAX_RESUME_CONTEXT_CHARS = 4000
+INTERVIEW_ROUND_OPTIONS = ["不限", "3", "5", "8"]
 
 
 def read_setting(name: str, default: str = "") -> str:
@@ -493,6 +494,24 @@ def has_user_answers(messages: List[BaseMessage]) -> bool:
     return any(isinstance(message, HumanMessage) for message in messages)
 
 
+def count_user_answers(messages: List[BaseMessage]) -> int:
+    return sum(isinstance(message, HumanMessage) for message in messages)
+
+
+def is_round_limit_reached(messages: List[BaseMessage], round_limit: str) -> bool:
+    if round_limit == "不限":
+        return False
+    return count_user_answers(messages) >= int(round_limit)
+
+
+def build_next_question_prompt(round_limit: str) -> HumanMessage:
+    if round_limit == "不限":
+        content = "请根据当前岗位、难度、题目来源和已有回答，换一道新的面试题。不要重复当前对话中已经出现过的问题，尤其不要重复最后一道题。直接输出一个不同知识点的新问题。"
+    else:
+        content = f"请换一道新的面试题。本轮面试目标题数是 {round_limit} 道，请保持问题聚焦。不要重复当前对话中已经出现过的问题，尤其不要重复最后一道题。"
+    return HumanMessage(content=content)
+
+
 def build_report_prompt(
     role: str,
     difficulty: str,
@@ -572,6 +591,28 @@ def generate_interview_report(
         history_text=history_text,
     )
     return str(llm.invoke(report_messages).content)
+
+
+def save_or_generate_report(
+    llm: ChatOpenAI,
+    role: str,
+    difficulty: str,
+    training_mode: str,
+    question_source: str,
+    history_text: str,
+) -> str:
+    report = generate_interview_report(
+        llm=llm,
+        role=role,
+        difficulty=difficulty,
+        training_mode=training_mode,
+        question_source=question_source,
+        history_text=history_text,
+    )
+    st.session_state.interview_report = report
+    if st.session_state.get("current_session_id"):
+        save_history_report(int(st.session_state.current_session_id), report)
+    return report
 
 
 def start_interview() -> None:
@@ -725,6 +766,15 @@ with st.sidebar:
     base_url = read_setting("BASE_URL", DEFAULT_BASE_URL)
     st.caption(f"Base URL: `{base_url}`")
 
+    st.divider()
+    st.header("流程控制")
+    round_limit = st.selectbox(
+        "面试题数",
+        INTERVIEW_ROUND_OPTIONS,
+        help="选择“不限”时，可手动决定何时结束面试。",
+        key="selected_round_limit",
+    )
+
     st.button("开始面试", type="primary", use_container_width=True, on_click=start_interview)
 
     if st.button("重新开始面试", use_container_width=True):
@@ -805,6 +855,46 @@ if len(st.session_state.messages) == 1:
 
 render_chat(st.session_state.messages)
 
+answered_count = count_user_answers(st.session_state.messages)
+round_limit_reached = is_round_limit_reached(st.session_state.messages, round_limit)
+
+st.caption(
+    f"当前已回答 {answered_count} 道题"
+    + ("，面试题数不限。" if round_limit == "不限" else f"，目标题数 {round_limit} 道。")
+)
+
+control_col_1, control_col_2 = st.columns(2)
+with control_col_1:
+    if st.button("换/继续下一题", use_container_width=True):
+        session_id = ensure_history_session(client_id, role, difficulty, training_mode, question_source)
+        with st.spinner("面试官正在准备下一题..."):
+            next_ai_message = ask_llm(
+                llm,
+                [*st.session_state.messages, build_next_question_prompt(round_limit)],
+            )
+            st.session_state.messages.append(next_ai_message)
+            save_history_message(session_id, next_ai_message)
+            st.rerun()
+
+with control_col_2:
+    if st.button("结束面试并生成报告", type="primary", use_container_width=True):
+        if has_user_answers(st.session_state.messages):
+            with st.spinner("正在生成面试总结报告..."):
+                save_or_generate_report(
+                    llm=llm,
+                    role=role,
+                    difficulty=difficulty,
+                    training_mode=training_mode,
+                    question_source=question_source,
+                    history_text=export_chat_history(st.session_state.messages),
+                )
+            st.rerun()
+        else:
+            st.warning("请至少完成一轮回答后再生成报告。")
+
+if round_limit_reached:
+    st.info("已达到本轮面试题数。你可以结束面试并生成报告，也可以点击“换/继续下一题”加练。")
+
 answer = st.chat_input("请输入你的回答...")
 if answer:
     session_id = ensure_history_session(client_id, role, difficulty, training_mode, question_source)
@@ -821,26 +911,12 @@ if answer:
             st.session_state.messages.append(ai_message)
             save_history_message(session_id, ai_message)
             st.markdown(str(ai_message.content))
+    st.rerun()
 
 history_text = export_chat_history(st.session_state.get("messages", []))
 
 st.divider()
 st.subheader("面试总结报告")
-if not has_user_answers(st.session_state.get("messages", [])):
-    st.info("完成至少一轮回答后，可以生成面试总结报告。")
-elif st.button("生成面试总结报告", type="primary"):
-    with st.spinner("正在生成面试总结报告..."):
-        st.session_state.interview_report = generate_interview_report(
-            llm=llm,
-            role=role,
-            difficulty=difficulty,
-            training_mode=training_mode,
-            question_source=question_source,
-            history_text=history_text,
-        )
-        if st.session_state.get("current_session_id"):
-            save_history_report(int(st.session_state.current_session_id), st.session_state.interview_report)
-
 if st.session_state.get("interview_report"):
     st.markdown(st.session_state.interview_report)
     st.download_button(
@@ -849,6 +925,10 @@ if st.session_state.get("interview_report"):
         file_name="interview-report.md",
         mime="text/markdown",
     )
+elif has_user_answers(st.session_state.get("messages", [])):
+    st.info("点击上方“结束面试并生成报告”后，会在这里展示总结报告。")
+else:
+    st.info("完成至少一轮回答后，可以结束面试并生成报告。")
 
 with st.sidebar:
     st.divider()
