@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -17,6 +20,7 @@ load_dotenv()
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-v4-flash"
 QUESTION_BANK_PATH = Path(__file__).parent / "data" / "question_bank.json"
+HISTORY_DB_PATH = Path(__file__).parent / "data" / "interview_history.db"
 TRAINING_MODES = ["学习模式", "面试模式"]
 QUESTION_SOURCES = ["本地题库", "AI 动态生成", "混合模式"]
 MODEL_OPTIONS: Dict[str, str] = {
@@ -34,6 +38,196 @@ def read_setting(name: str, default: str = "") -> str:
     except Exception:
         value = ""
     return str(value or os.getenv(name, default))
+
+
+def now_text() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def get_client_id() -> str:
+    query_client_id = st.query_params.get("client_id", "")
+    if query_client_id:
+        st.session_state.client_id = query_client_id
+        return query_client_id
+
+    if "client_id" not in st.session_state:
+        st.session_state.client_id = uuid.uuid4().hex
+        st.query_params["client_id"] = st.session_state.client_id
+
+    return str(st.session_state.client_id)
+
+
+def connect_history_db() -> sqlite3.Connection:
+    connection = sqlite3.connect(HISTORY_DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_history_db() -> None:
+    with connect_history_db() as connection:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                client_id TEXT,
+                title TEXT NOT NULL,
+                role TEXT NOT NULL,
+                difficulty TEXT NOT NULL,
+                training_mode TEXT NOT NULL,
+                question_source TEXT NOT NULL,
+                report TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(sessions)").fetchall()
+        }
+        if "client_id" not in columns:
+            connection.execute("ALTER TABLE sessions ADD COLUMN client_id TEXT DEFAULT ''")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
+            )
+            """
+        )
+
+
+def create_history_session(
+    client_id: str,
+    role: str,
+    difficulty: str,
+    training_mode: str,
+    question_source: str,
+) -> int:
+    created_at = now_text()
+    title = f"{role} - {created_at[5:16]}"
+    with connect_history_db() as connection:
+        cursor = connection.execute(
+            """
+            INSERT INTO sessions (client_id, title, role, difficulty, training_mode, question_source, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (client_id, title, role, difficulty, training_mode, question_source, created_at, created_at),
+        )
+        return int(cursor.lastrowid)
+
+
+def ensure_history_session(
+    client_id: str,
+    role: str,
+    difficulty: str,
+    training_mode: str,
+    question_source: str,
+) -> int:
+    session_id = st.session_state.get("current_session_id")
+    if session_id:
+        return int(session_id)
+
+    session_id = create_history_session(client_id, role, difficulty, training_mode, question_source)
+    st.session_state.current_session_id = session_id
+    return session_id
+
+
+def message_role(message: BaseMessage) -> str:
+    if isinstance(message, AIMessage):
+        return "assistant"
+    if isinstance(message, HumanMessage):
+        return "user"
+    return "system"
+
+
+def save_history_message(session_id: int, message: BaseMessage) -> None:
+    role = message_role(message)
+    if role == "system":
+        return
+
+    with connect_history_db() as connection:
+        connection.execute(
+            """
+            INSERT INTO messages (session_id, role, content, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (session_id, role, str(message.content), now_text()),
+        )
+        connection.execute(
+            "UPDATE sessions SET updated_at = ? WHERE id = ?",
+            (now_text(), session_id),
+        )
+
+
+def save_history_report(session_id: int, report: str) -> None:
+    with connect_history_db() as connection:
+        connection.execute(
+            "UPDATE sessions SET report = ?, updated_at = ? WHERE id = ?",
+            (report, now_text(), session_id),
+        )
+
+
+def list_history_sessions(client_id: str, limit: int = 10) -> List[sqlite3.Row]:
+    with connect_history_db() as connection:
+        return connection.execute(
+            """
+            SELECT id, title, role, difficulty, training_mode, question_source, updated_at
+            FROM sessions
+            WHERE client_id = ?
+            ORDER BY updated_at DESC
+            LIMIT ?
+            """,
+            (client_id, limit),
+        ).fetchall()
+
+
+def load_history_session(session_id: int) -> tuple[sqlite3.Row, List[sqlite3.Row]]:
+    with connect_history_db() as connection:
+        session = connection.execute(
+            "SELECT * FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        messages = connection.execute(
+            """
+            SELECT role, content
+            FROM messages
+            WHERE session_id = ?
+            ORDER BY id ASC
+            """,
+            (session_id,),
+        ).fetchall()
+    return session, messages
+
+
+def restore_history_session(session_id: int) -> None:
+    session, messages = load_history_session(session_id)
+    if session is None:
+        return
+
+    st.session_state.selected_role = session["role"]
+    st.session_state.selected_difficulty = session["difficulty"]
+    st.session_state.selected_training_mode = session["training_mode"]
+    st.session_state.selected_question_source = session["question_source"]
+    st.session_state.current_session_id = session_id
+    st.session_state.interview_started = True
+    st.session_state.interview_report = session["report"] or ""
+    st.session_state.pending_history_messages = [
+        {"role": message["role"], "content": message["content"]} for message in messages
+    ]
+
+
+def rows_to_messages(rows: List[dict]) -> List[BaseMessage]:
+    restored_messages: List[BaseMessage] = []
+    for row in rows:
+        if row["role"] == "assistant":
+            restored_messages.append(AIMessage(content=row["content"]))
+        elif row["role"] == "user":
+            restored_messages.append(HumanMessage(content=row["content"]))
+    return restored_messages
 
 
 @st.cache_data
@@ -347,6 +541,8 @@ def start_interview() -> None:
     st.session_state.pop("messages", None)
     st.session_state.pop("interview_config", None)
     st.session_state.pop("interview_report", None)
+    st.session_state.pop("current_session_id", None)
+    st.session_state.pop("pending_history_messages", None)
 
 
 st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout="centered")
@@ -355,13 +551,15 @@ st.title("AI 模拟面试官")
 st.caption("基于 Streamlit、LangChain 和大模型 API 的垂直领域 AI Agent 第一版")
 
 question_bank = load_question_bank()
+init_history_db()
+client_id = get_client_id()
 
 with st.sidebar:
     st.header("面试设置")
-    role = st.selectbox("目标岗位", list(question_bank.keys()))
-    difficulty = st.selectbox("面试难度", ["基础", "中等", "进阶"])
-    training_mode = st.selectbox("训练模式", TRAINING_MODES)
-    question_source = st.selectbox("题目来源", QUESTION_SOURCES)
+    role = st.selectbox("目标岗位", list(question_bank.keys()), key="selected_role")
+    difficulty = st.selectbox("面试难度", ["基础", "中等", "进阶"], key="selected_difficulty")
+    training_mode = st.selectbox("训练模式", TRAINING_MODES, key="selected_training_mode")
+    question_source = st.selectbox("题目来源", QUESTION_SOURCES, key="selected_question_source")
 
     st.divider()
     st.header("简历上传")
@@ -429,9 +627,32 @@ with st.sidebar:
         st.session_state.pop("interview_config", None)
         st.session_state.pop("interview_started", None)
         st.session_state.pop("interview_report", None)
+        st.session_state.pop("current_session_id", None)
+        st.session_state.pop("pending_history_messages", None)
         st.rerun()
 
+    st.divider()
+    st.header("历史面试记录")
+    st.caption("保存最近 10 次面试，可点击恢复对话。")
+    history_sessions = list_history_sessions(client_id)
+    if not history_sessions:
+        st.caption("暂无历史记录。")
+    for history_session in history_sessions:
+        label = f"{history_session['title']}｜{history_session['difficulty']}"
+        st.button(
+            label,
+            key=f"history_session_{history_session['id']}",
+            use_container_width=True,
+            on_click=restore_history_session,
+            args=(int(history_session["id"]),),
+        )
+
 ensure_messages(question_bank, role, difficulty, training_mode, question_source, resume_context)
+
+if st.session_state.get("pending_history_messages") is not None:
+    restored_messages = rows_to_messages(st.session_state.pending_history_messages)
+    st.session_state.messages = [st.session_state.messages[0], *restored_messages]
+    st.session_state.pop("pending_history_messages", None)
 
 if not st.session_state.get("interview_started"):
     st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。")
@@ -464,6 +685,7 @@ llm = build_llm(
 
 if len(st.session_state.messages) == 1:
     with st.spinner("面试官正在准备第一题..."):
+        session_id = ensure_history_session(client_id, role, difficulty, training_mode, question_source)
         if resume_context:
             start_text = "请先基于候选人简历中的项目经历或技术栈开始面试，提出一道有针对性的项目问题。"
         elif training_mode == "学习模式":
@@ -471,14 +693,19 @@ if len(st.session_state.messages) == 1:
         else:
             start_text = "请以面试模式开始，根据题目来源提出第一道技术问题。"
         first_prompt = HumanMessage(content=start_text)
-        st.session_state.messages.append(ask_llm(llm, [*st.session_state.messages, first_prompt]))
+        first_ai_message = ask_llm(llm, [*st.session_state.messages, first_prompt])
+        st.session_state.messages.append(first_ai_message)
+        save_history_message(session_id, first_ai_message)
 
 render_chat(st.session_state.messages)
 
 answer = st.chat_input("请输入你的回答...")
 if answer:
+    session_id = ensure_history_session(client_id, role, difficulty, training_mode, question_source)
     st.session_state.messages.append(HumanMessage(content=answer))
+    save_history_message(session_id, st.session_state.messages[-1])
     st.session_state.pop("interview_report", None)
+    save_history_report(session_id, "")
     with st.chat_message("user"):
         st.markdown(answer)
 
@@ -486,6 +713,7 @@ if answer:
         with st.spinner("面试官正在评价你的回答..."):
             ai_message = ask_llm(llm, st.session_state.messages)
             st.session_state.messages.append(ai_message)
+            save_history_message(session_id, ai_message)
             st.markdown(str(ai_message.content))
 
 history_text = export_chat_history(st.session_state.get("messages", []))
@@ -504,6 +732,8 @@ elif st.button("生成面试总结报告", type="primary"):
             question_source=question_source,
             history_text=history_text,
         )
+        if st.session_state.get("current_session_id"):
+            save_history_report(int(st.session_state.current_session_id), st.session_state.interview_report)
 
 if st.session_state.get("interview_report"):
     st.markdown(st.session_state.interview_report)
@@ -517,7 +747,7 @@ if st.session_state.get("interview_report"):
 with st.sidebar:
     st.divider()
     st.header("对话记录")
-    st.caption("当前对话保存在浏览器会话里，刷新或重新开始后可能清空。")
+    st.caption("当前对话会自动保存到历史面试记录，也可以导出为 Markdown。")
 
     with st.expander("打开/收起当前面试记录"):
         st.text_area(

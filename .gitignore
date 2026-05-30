@@ -6,3 +6,4 @@ __pycache__/
 .streamlit/secrets.toml
 interview-history*.md
 interview-report*.md
+data/interview_history.db*
