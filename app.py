@@ -232,6 +232,12 @@ def export_chat_history(messages: List[BaseMessage]) -> str:
     return "\n".join(lines)
 
 
+def start_interview() -> None:
+    st.session_state.interview_started = True
+    st.session_state.pop("messages", None)
+    st.session_state.pop("interview_config", None)
+
+
 st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout="centered")
 
 st.title("AI 模拟面试官")
@@ -246,8 +252,13 @@ with st.sidebar:
 
     st.divider()
     st.header("模型配置")
-    default_api_key = read_setting("DEEPSEEK_API_KEY") or read_setting("OPENAI_API_KEY")
-    api_key = st.text_input("API Key", value=default_api_key, type="password")
+    st.caption("在线演示版不会预填 API Key。请使用自己的 DeepSeek API Key 体验，避免误用他人额度。")
+    api_key = st.text_input(
+        "API Key",
+        value="",
+        type="password",
+        placeholder="请输入你的 DeepSeek API Key",
+    )
     configured_model = read_setting("MODEL_NAME", DEFAULT_MODEL)
     model_label = st.selectbox(
         "模型",
@@ -273,16 +284,33 @@ with st.sidebar:
     base_url = read_setting("BASE_URL", DEFAULT_BASE_URL)
     st.caption(f"Base URL: `{base_url}`")
 
+    st.button("开始面试", type="primary", use_container_width=True, on_click=start_interview)
+
     if st.button("重新开始面试", use_container_width=True):
         st.session_state.pop("messages", None)
         st.session_state.pop("interview_config", None)
+        st.session_state.pop("interview_started", None)
         st.rerun()
 
 ensure_messages(role, difficulty, training_mode, question_source)
 
+if not st.session_state.get("interview_started"):
+    st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。")
+    st.markdown(
+        """
+### 你可以用它做什么
+- 选择目标岗位，进行技术面试训练。
+- 在学习模式下先补基础，再做练习题。
+- 在面试模式下模拟真实追问和评分。
+- 切换本地题库、AI 动态生成或混合出题。
+- 导出本次面试记录，方便复盘。
+""".strip()
+    )
+    st.stop()
+
 api_key_error = validate_api_key(api_key)
 if api_key_error:
-    st.warning(f"{api_key_error} 请在侧边栏输入，或在 `.env` / Streamlit Secrets 中配置 `DEEPSEEK_API_KEY`。")
+    st.warning(f"{api_key_error} 请在侧边栏输入有效的 DeepSeek API Key。")
     st.stop()
 
 llm = build_llm(
