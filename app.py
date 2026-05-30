@@ -236,6 +236,37 @@ def load_question_bank() -> Dict[str, List[dict]]:
         return json.load(file)
 
 
+def validate_question_bank(question_bank: object) -> tuple[bool, str]:
+    if not isinstance(question_bank, dict) or not question_bank:
+        return False, "题库必须是非空 JSON 对象。"
+
+    required_fields = {"question", "difficulty", "type", "tags", "expected_points"}
+    for role, questions in question_bank.items():
+        if not isinstance(role, str) or not role.strip():
+            return False, "岗位名称必须是非空字符串。"
+        if not isinstance(questions, list) or not questions:
+            return False, f"{role} 的题目列表不能为空。"
+        for index, question in enumerate(questions, start=1):
+            if not isinstance(question, dict):
+                return False, f"{role} 第 {index} 道题必须是 JSON 对象。"
+            missing_fields = required_fields - set(question)
+            if missing_fields:
+                return False, f"{role} 第 {index} 道题缺少字段：{', '.join(sorted(missing_fields))}。"
+            if not isinstance(question["tags"], list) or not isinstance(question["expected_points"], list):
+                return False, f"{role} 第 {index} 道题的 tags 和 expected_points 必须是数组。"
+    return True, "题库格式校验通过。"
+
+
+def question_bank_stats(question_bank: Dict[str, List[dict]]) -> tuple[int, int]:
+    role_count = len(question_bank)
+    question_count = sum(len(questions) for questions in question_bank.values())
+    return role_count, question_count
+
+
+def question_bank_to_json(question_bank: Dict[str, List[dict]]) -> str:
+    return json.dumps(question_bank, ensure_ascii=False, indent=2)
+
+
 def validate_api_key(api_key: str) -> Optional[str]:
     cleaned_key = api_key.strip()
     if not cleaned_key:
@@ -557,12 +588,79 @@ st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout=
 st.title("AI 模拟面试官")
 st.caption("基于 Streamlit、LangChain 和大模型 API 的垂直领域 AI Agent 第一版")
 
-question_bank = load_question_bank()
+default_question_bank = load_question_bank()
+question_bank = st.session_state.get("custom_question_bank", default_question_bank)
 init_history_db()
 client_id = get_client_id()
 
 with st.sidebar:
+    st.header("题库管理")
+    role_count, question_count = question_bank_stats(question_bank)
+    st.caption(f"当前题库：{role_count} 个岗位，{question_count} 道题。")
+
+    question_bank_file = st.file_uploader(
+        "上传自定义题库 JSON（可选）",
+        type=["json"],
+        help="上传后仅在当前浏览器会话生效，不会覆盖项目默认题库。",
+    )
+    if question_bank_file is not None:
+        try:
+            uploaded_bank = json.loads(question_bank_file.getvalue().decode("utf-8"))
+            is_valid, message = validate_question_bank(uploaded_bank)
+            if is_valid:
+                uploaded_bank_json = question_bank_to_json(uploaded_bank)
+                if st.session_state.get("custom_question_bank_json") != uploaded_bank_json:
+                    st.session_state.pop("messages", None)
+                    st.session_state.pop("interview_config", None)
+                    st.session_state.pop("interview_started", None)
+                    st.session_state.pop("interview_report", None)
+                    st.session_state.pop("current_session_id", None)
+                    st.session_state.pop("pending_history_messages", None)
+                st.session_state.custom_question_bank = uploaded_bank
+                st.session_state.custom_question_bank_json = uploaded_bank_json
+                question_bank = uploaded_bank
+                role_count, question_count = question_bank_stats(question_bank)
+                st.success(f"{message} 已加载 {role_count} 个岗位、{question_count} 道题。")
+            else:
+                st.warning(message)
+        except Exception as error:
+            st.warning(f"题库解析失败：{error}")
+
+    if st.session_state.get("preview_role") not in question_bank:
+        st.session_state.preview_role = next(iter(question_bank))
+    preview_role = st.selectbox("预览岗位题目", list(question_bank.keys()), key="preview_role")
+    with st.expander("查看题库预览"):
+        for index, question in enumerate(question_bank.get(preview_role, []), start=1):
+            st.markdown(
+                f"**{index}. {question.get('question', '')}**\n\n"
+                f"- 难度：{question.get('difficulty', '')}\n"
+                f"- 类型：{question.get('type', '')}\n"
+                f"- 标签：{', '.join(question.get('tags', []))}"
+            )
+
+    st.download_button(
+        "下载当前题库 JSON",
+        data=question_bank_to_json(question_bank),
+        file_name="question_bank.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+
+    if st.button("恢复默认题库", use_container_width=True):
+        st.session_state.pop("custom_question_bank", None)
+        st.session_state.pop("custom_question_bank_json", None)
+        st.session_state.pop("messages", None)
+        st.session_state.pop("interview_config", None)
+        st.session_state.pop("interview_started", None)
+        st.session_state.pop("interview_report", None)
+        st.session_state.pop("current_session_id", None)
+        st.session_state.pop("pending_history_messages", None)
+        st.rerun()
+
+    st.divider()
     st.header("面试设置")
+    if st.session_state.get("selected_role") not in question_bank:
+        st.session_state.selected_role = next(iter(question_bank))
     role = st.selectbox("目标岗位", list(question_bank.keys()), key="selected_role")
     difficulty = st.selectbox("面试难度", ["基础", "中等", "进阶"], key="selected_difficulty")
     training_mode = st.selectbox("训练模式", TRAINING_MODES, key="selected_training_mode")
@@ -670,6 +768,7 @@ if not st.session_state.get("interview_started"):
 - 在学习模式下先补基础，再做练习题。
 - 在面试模式下模拟真实追问和评分。
 - 切换本地题库、AI 动态生成或混合出题。
+- 上传自定义题库 JSON，按自己的题库进行训练。
 - 上传简历，让 AI 根据项目经历和技能进行针对性提问。
 - 导出本次面试记录，方便复盘。
 """.strip()
