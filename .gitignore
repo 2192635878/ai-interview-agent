@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 .streamlit/secrets.toml
 interview-history*.md
+interview-report*.md

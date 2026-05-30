@@ -1,26 +1,55 @@
 # AI 模拟面试官 Agent
 
-一个基于 Streamlit、LangChain 和大模型 API 的垂直领域 AI Agent 第一版项目。
+一个基于 Streamlit、LangChain 和 DeepSeek API 的垂直领域 AI Agent 应用，用于模拟技术面试、辅助学习复盘，并生成结构化面试总结报告。
 
-## 功能
+- 在线体验：https://ai-interview-agent-8dywxqicugfvm25wglebn6.streamlit.app/
+- GitHub：https://github.com/2192635878/ai-interview-agent
 
-- 支持选择目标岗位：Java 后端、Python 后端、Golang、前端、算法工程师、AI Agent
-- 支持学习模式和面试模式
-- 支持本地题库、AI 动态生成、混合模式三种题目来源
-- 支持 DeepSeek Flash / Pro 模型切换
-- 支持 DeepSeek 思考模式开关和思考强度选择
-- AI 一次提出一个技术面试问题
-- 根据用户回答给出评价、问题、评分、改进建议和参考思路
-- 支持多轮上下文对话
-- 支持查看和导出当前面试记录
-- 支持生成结构化面试总结报告，包含总体评分、薄弱知识点和复习建议
+> 在线演示版不会内置 API Key。使用时需要在侧边栏输入自己的 DeepSeek API Key，避免公开链接消耗个人额度。
+
+## 项目截图
+
+建议放 3 张截图，保存到 `docs/images/` 目录：
+
+1. `start-page.png`：开始页，展示岗位、模式、模型配置和开始面试按钮。
+2. `interview-chat.png`：面试对话页，展示 AI 提问、用户回答、评分和追问。
+3. `summary-report.png`：总结报告页，展示总体评分、薄弱知识点和复习建议。
+
+截图放好后，取消下面三行的注释即可展示：
+
+<!--
+![开始页](docs/images/start-page.png)
+![面试对话](docs/images/interview-chat.png)
+![总结报告](docs/images/summary-report.png)
+-->
+
+## 核心功能
+
+- 支持 Java 后端、Python 后端、Golang、前端、算法工程师、AI Agent 等岗位方向。
+- 支持学习模式和面试模式，分别面向知识补齐和真实面试训练。
+- 支持本地题库、AI 动态生成、混合模式三种题目来源。
+- 支持 DeepSeek Flash / Pro 模型切换。
+- 支持 DeepSeek 思考模式开关和思考强度选择。
+- 支持多轮上下文对话，AI 可根据历史回答继续追问。
+- 支持回答质量评分，包括准确性、完整性、表达清晰度。
+- 支持查看和导出当前面试记录。
+- 支持生成结构化面试总结报告，包含总体评分、薄弱知识点、改进建议和复习路线。
+
+## 技术亮点
+
+- 使用 LangChain 的 `ChatOpenAI` 接入 DeepSeek OpenAI 兼容接口，统一管理模型调用。
+- 通过 Prompt Engineering 约束 AI 面试官的角色、提问方式、评分格式和总结报告结构。
+- 基于 `st.session_state` 实现单次会话内的多轮上下文记忆。
+- 将题目来源抽象为本地题库、LLM 动态生成和混合模式，提升出题灵活性。
+- 对在线演示版的 API Key 做输入校验，避免占位符或中文内容触发请求错误。
+- 使用 Streamlit Community Cloud 部署，提供可公开访问的在线演示地址。
 
 ## 技术栈
 
 - Python
 - Streamlit
 - LangChain
-- DeepSeek API 或其他 OpenAI 兼容 API
+- DeepSeek API
 
 ## 本地运行
 
@@ -66,12 +95,22 @@ BASE_URL=https://api.deepseek.com
 streamlit run app.py
 ```
 
-## 部署到 Streamlit Community Cloud
+Windows 用户也可以直接运行：
 
-1. 将本项目上传到 GitHub。
-2. 打开 Streamlit Community Cloud 并选择该仓库。
-3. 入口文件选择 `app.py`。
-4. 在 Secrets 中添加：
+```powershell
+.\run_app.bat
+```
+
+## 部署方式
+
+本项目已部署到 Streamlit Community Cloud。
+
+部署步骤：
+
+1. 将项目推送到 GitHub。
+2. 在 Streamlit Community Cloud 中选择该仓库。
+3. Branch 选择 `main`，入口文件填写 `app.py`。
+4. 如需使用服务端 API Key，可在 Secrets 中添加：
 
 ```toml
 DEEPSEEK_API_KEY = "your_deepseek_api_key_here"
@@ -79,16 +118,16 @@ MODEL_NAME = "deepseek-v4-flash"
 BASE_URL = "https://api.deepseek.com"
 ```
 
-5. 点击 Deploy，等待生成在线访问链接。
+当前在线演示版默认要求用户自行输入 API Key。
 
-## 后续可扩展方向
+## 后续规划
 
-- 加入 Redis，实现跨浏览器的持久化 Session 记忆
-- 增加简历解析功能，根据用户简历生成针对性问题
-- 接入搜索工具，让 Agent 查询知识点或岗位要求
-- 接入 RAG 面经知识库，让 Agent 从面经和岗位 JD 中检索问题
-- 使用 Docker 和 Zeabur 部署
+- 增加固定面试轮次和“继续下一题”按钮，让流程更结构化。
+- 增加简历解析功能，根据用户简历生成针对性问题。
+- 接入 RAG 面经知识库，从面经、岗位 JD 和学习笔记中检索问题。
+- 使用 SQLite 或 Redis 保存历史面试记录。
+- 增加 Dockerfile，支持 Zeabur 等平台容器化部署。
 
 ## 简历描述示例
 
-基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、本地题库与 LLM 动态出题、DeepSeek Flash/Pro 模型切换、思考模式控制、多轮上下文记忆、回答质量评分、面试记录导出和结构化总结报告生成，并部署至 Streamlit Cloud 提供在线访问。
+基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、本地题库与 LLM 动态出题、DeepSeek Flash/Pro 模型切换、思考模式控制、多轮上下文记忆、回答质量评分、面试记录导出和结构化总结报告生成，并部署至 Streamlit Community Cloud 提供在线访问。
