@@ -124,12 +124,16 @@ def build_mode_instruction(training_mode: str) -> str:
 """.strip()
 
 
-def build_source_instruction(question_source: str) -> str:
+def build_source_instruction(question_source: str, has_resume: bool) -> str:
+    resume_rule = ""
+    if has_resume:
+        resume_rule = "候选人已上传简历，本地题库只作为知识点参考，前 1-2 个问题必须优先围绕简历中的项目经历、技术栈或求职方向展开。"
+
     if question_source == "本地题库":
-        return "题目来源：优先从本地题库中选择或改写问题，保证问题稳定、可控。"
+        return f"题目来源：优先从本地题库中选择或改写问题，保证问题稳定、可控，但不要机械按题库顺序逐题照问。{resume_rule}"
     if question_source == "AI 动态生成":
-        return "题目来源：不要依赖本地题库，请根据岗位、难度和历史回答动态生成新问题。"
-    return "题目来源：结合本地题库和 AI 动态生成。可以参考题库，但要根据用户回答灵活追问。"
+        return f"题目来源：不要依赖本地题库，请根据岗位、难度和历史回答动态生成新问题。{resume_rule}"
+    return f"题目来源：结合本地题库和 AI 动态生成。可以参考题库，但要根据用户回答灵活追问。{resume_rule}"
 
 
 def build_system_prompt(
@@ -141,7 +145,7 @@ def build_system_prompt(
     resume_context: str,
 ) -> str:
     mode_instruction = build_mode_instruction(training_mode)
-    source_instruction = build_source_instruction(question_source)
+    source_instruction = build_source_instruction(question_source, bool(resume_context.strip()))
 
     return f"""
 你是一名严格但友好的技术面试官，正在面试候选人的岗位是：{role}。
@@ -169,6 +173,7 @@ def build_system_prompt(
 {resume_context}
 
 如果候选人上传了简历，你需要优先结合简历中的项目经历、技术栈和求职方向进行提问与追问，避免只问泛泛的概念题。
+如果简历中包含项目经历，第一道题应优先从项目经历切入，例如询问项目背景、技术选型、实现细节、难点或可改进点。
 """.strip()
 
 
@@ -459,7 +464,9 @@ llm = build_llm(
 
 if len(st.session_state.messages) == 1:
     with st.spinner("面试官正在准备第一题..."):
-        if training_mode == "学习模式":
+        if resume_context:
+            start_text = "请先基于候选人简历中的项目经历或技术栈开始面试，提出一道有针对性的项目问题。"
+        elif training_mode == "学习模式":
             start_text = "请以学习模式开始，先讲一个入门知识点，再提出一道简单练习题。"
         else:
             start_text = "请以面试模式开始，根据题目来源提出第一道技术问题。"
