@@ -13,6 +13,7 @@
 - 根据用户回答给出评价、问题、评分、改进建议和参考思路
 - 支持多轮上下文对话
 - 支持查看和导出当前面试记录
+- 支持生成结构化面试总结报告，包含总体评分、薄弱知识点和复习建议
 
 ## 技术栈
 
@@ -90,4 +91,4 @@ BASE_URL = "https://api.deepseek.com"
 
 ## 简历描述示例
 
-基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、本地题库与 LLM 动态出题、DeepSeek Flash/Pro 模型切换、思考模式控制、多轮上下文记忆、回答质量评分和面试记录导出，并部署至 Streamlit Cloud 提供在线访问。
+基于 Python、LangChain 与 Streamlit 独立开发 AI 模拟面试官系统，支持岗位选择、学习/面试双模式、本地题库与 LLM 动态出题、DeepSeek Flash/Pro 模型切换、思考模式控制、多轮上下文记忆、回答质量评分、面试记录导出和结构化总结报告生成，并部署至 Streamlit Cloud 提供在线访问。

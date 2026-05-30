@@ -232,10 +232,96 @@ def export_chat_history(messages: List[BaseMessage]) -> str:
     return "\n".join(lines)
 
 
+def has_user_answers(messages: List[BaseMessage]) -> bool:
+    return any(isinstance(message, HumanMessage) for message in messages)
+
+
+def build_report_prompt(
+    role: str,
+    difficulty: str,
+    training_mode: str,
+    question_source: str,
+    history_text: str,
+) -> List[BaseMessage]:
+    system_prompt = """
+你是一名专业的技术面试复盘教练。请根据用户本轮模拟面试记录，生成结构化中文总结报告。
+
+要求：
+1. 不要继续提新问题，只做总结和复盘。
+2. 不要虚构没有出现在记录中的表现。
+3. 评分要结合记录，给出简短理由。
+4. 建议要具体，可执行，适合用户下一轮练习。
+5. 使用 Markdown 输出。
+
+报告格式：
+# 面试总结报告
+
+## 基本信息
+- 目标岗位：
+- 面试难度：
+- 训练模式：
+- 题目来源：
+
+## 总体评分
+- 综合评分：x/100
+- 准确性：x/10
+- 完整性：x/10
+- 表达清晰度：x/10
+
+## 表现亮点
+- ...
+
+## 薄弱知识点
+- ...
+
+## 高频问题
+- ...
+
+## 改进建议
+- ...
+
+## 推荐复习路线
+- ...
+
+## 下一轮训练建议
+- ...
+""".strip()
+    user_prompt = f"""
+目标岗位：{role}
+面试难度：{difficulty}
+训练模式：{training_mode}
+题目来源：{question_source}
+
+以下是本轮面试记录：
+
+{history_text}
+""".strip()
+    return [SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)]
+
+
+def generate_interview_report(
+    llm: ChatOpenAI,
+    role: str,
+    difficulty: str,
+    training_mode: str,
+    question_source: str,
+    history_text: str,
+) -> str:
+    report_messages = build_report_prompt(
+        role=role,
+        difficulty=difficulty,
+        training_mode=training_mode,
+        question_source=question_source,
+        history_text=history_text,
+    )
+    return str(llm.invoke(report_messages).content)
+
+
 def start_interview() -> None:
     st.session_state.interview_started = True
     st.session_state.pop("messages", None)
     st.session_state.pop("interview_config", None)
+    st.session_state.pop("interview_report", None)
 
 
 st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout="centered")
@@ -290,6 +376,7 @@ with st.sidebar:
         st.session_state.pop("messages", None)
         st.session_state.pop("interview_config", None)
         st.session_state.pop("interview_started", None)
+        st.session_state.pop("interview_report", None)
         st.rerun()
 
 ensure_messages(role, difficulty, training_mode, question_source)
@@ -336,6 +423,7 @@ render_chat(st.session_state.messages)
 answer = st.chat_input("请输入你的回答...")
 if answer:
     st.session_state.messages.append(HumanMessage(content=answer))
+    st.session_state.pop("interview_report", None)
     with st.chat_message("user"):
         st.markdown(answer)
 
@@ -346,6 +434,30 @@ if answer:
             st.markdown(str(ai_message.content))
 
 history_text = export_chat_history(st.session_state.get("messages", []))
+
+st.divider()
+st.subheader("面试总结报告")
+if not has_user_answers(st.session_state.get("messages", [])):
+    st.info("完成至少一轮回答后，可以生成面试总结报告。")
+elif st.button("生成面试总结报告", type="primary"):
+    with st.spinner("正在生成面试总结报告..."):
+        st.session_state.interview_report = generate_interview_report(
+            llm=llm,
+            role=role,
+            difficulty=difficulty,
+            training_mode=training_mode,
+            question_source=question_source,
+            history_text=history_text,
+        )
+
+if st.session_state.get("interview_report"):
+    st.markdown(st.session_state.interview_report)
+    st.download_button(
+        "下载面试总结报告",
+        data=st.session_state.interview_report,
+        file_name="interview-report.md",
+        mime="text/markdown",
+    )
 
 with st.sidebar:
     st.divider()
