@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -68,6 +68,19 @@ def read_setting(name: str, default: str = "") -> str:
     except Exception:
         value = ""
     return str(value or os.getenv(name, default))
+
+
+def validate_api_key(api_key: str) -> Optional[str]:
+    cleaned_key = api_key.strip()
+    if not cleaned_key:
+        return "请先配置 DeepSeek API Key。"
+    if "your_" in cleaned_key.lower() or "你的" in cleaned_key:
+        return "当前 API Key 还是示例占位符，请替换成真实的 DeepSeek API Key。"
+    try:
+        cleaned_key.encode("ascii")
+    except UnicodeEncodeError:
+        return "API Key 只能包含英文、数字和符号，请不要填中文说明文字。"
+    return None
 
 
 def build_llm(
@@ -267,8 +280,9 @@ with st.sidebar:
 
 ensure_messages(role, difficulty, training_mode, question_source)
 
-if not api_key:
-    st.warning("请先在侧边栏输入 API Key，或在 `.env` / Streamlit Secrets 中配置 `DEEPSEEK_API_KEY`。")
+api_key_error = validate_api_key(api_key)
+if api_key_error:
+    st.warning(f"{api_key_error} 请在侧边栏输入，或在 `.env` / Streamlit Secrets 中配置 `DEEPSEEK_API_KEY`。")
     st.stop()
 
 llm = build_llm(
