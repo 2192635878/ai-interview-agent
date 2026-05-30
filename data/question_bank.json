@@ -1,0 +1,344 @@
+{
+  "Java 后端开发": [
+    {
+      "question": "请解释 Java 中 HashMap 的扩容机制，以及为什么容量通常是 2 的幂。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["HashMap", "集合", "哈希"],
+      "expected_points": [
+        "HashMap 基于数组、链表和红黑树存储键值对",
+        "达到负载因子阈值后会触发扩容，通常容量翻倍",
+        "容量为 2 的幂可以用位运算计算索引并减少哈希冲突"
+      ]
+    },
+    {
+      "question": "Spring Boot 自动配置的核心原理是什么？",
+      "difficulty": "中等",
+      "type": "框架原理题",
+      "tags": ["Spring Boot", "自动配置", "注解"],
+      "expected_points": [
+        "通过自动配置类根据条件装配 Bean",
+        "基于条件注解判断类路径、配置项和 Bean 是否存在",
+        "减少手动 XML 或配置类编写"
+      ]
+    },
+    {
+      "question": "MySQL 索引失效常见原因有哪些？请结合实际 SQL 举例。",
+      "difficulty": "中等",
+      "type": "场景分析题",
+      "tags": ["MySQL", "索引", "SQL优化"],
+      "expected_points": [
+        "在索引列上使用函数或隐式类型转换可能导致索引失效",
+        "联合索引不满足最左前缀原则可能无法充分利用索引",
+        "like 以通配符开头通常无法使用普通 B+ 树索引"
+      ]
+    },
+    {
+      "question": "如何设计一个简单的登录鉴权流程？",
+      "difficulty": "基础",
+      "type": "系统设计题",
+      "tags": ["登录", "JWT", "鉴权"],
+      "expected_points": [
+        "用户提交账号密码后服务端校验身份",
+        "登录成功后签发 token 或创建 session",
+        "后续请求携带凭证并通过中间件校验"
+      ]
+    },
+    {
+      "question": "如果线上接口响应时间突然升高，你会如何排查？",
+      "difficulty": "进阶",
+      "type": "场景排查题",
+      "tags": ["性能排查", "日志", "数据库"],
+      "expected_points": [
+        "先通过监控确认接口、时间段和影响范围",
+        "查看日志、链路追踪和慢 SQL",
+        "区分应用、数据库、缓存、网络等瓶颈来源"
+      ]
+    }
+  ],
+  "Python 后端开发": [
+    {
+      "question": "Python 的 GIL 是什么？它对多线程性能有什么影响？",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["Python", "GIL", "多线程"],
+      "expected_points": [
+        "GIL 是 CPython 中的全局解释器锁",
+        "同一时刻通常只有一个线程执行 Python 字节码",
+        "CPU 密集型任务多线程收益有限，IO 密集型任务仍可能受益"
+      ]
+    },
+    {
+      "question": "FastAPI 和 Flask 的主要区别是什么？",
+      "difficulty": "基础",
+      "type": "框架对比题",
+      "tags": ["FastAPI", "Flask", "Web框架"],
+      "expected_points": [
+        "FastAPI 原生支持异步和类型注解",
+        "FastAPI 自动生成 OpenAPI 文档",
+        "Flask 更轻量灵活，生态成熟"
+      ]
+    },
+    {
+      "question": "如何定位一个接口响应变慢的问题？",
+      "difficulty": "中等",
+      "type": "场景排查题",
+      "tags": ["性能排查", "日志", "数据库"],
+      "expected_points": [
+        "先复现并确认慢请求范围",
+        "检查应用日志、数据库慢查询和外部依赖耗时",
+        "用 profiling 或链路追踪定位瓶颈"
+      ]
+    },
+    {
+      "question": "请说明常见的数据库事务隔离级别。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["数据库", "事务", "隔离级别"],
+      "expected_points": [
+        "读未提交、读已提交、可重复读、串行化",
+        "不同隔离级别解决脏读、不可重复读、幻读的程度不同",
+        "MySQL InnoDB 默认通常是可重复读"
+      ]
+    },
+    {
+      "question": "如果一个 Python 服务内存持续上涨，你会如何排查？",
+      "difficulty": "进阶",
+      "type": "场景排查题",
+      "tags": ["内存泄漏", "监控", "Python"],
+      "expected_points": [
+        "确认内存增长趋势和触发场景",
+        "检查全局缓存、对象引用和未关闭资源",
+        "使用 tracemalloc、objgraph 等工具辅助定位"
+      ]
+    }
+  ],
+  "前端开发": [
+    {
+      "question": "React 中 useEffect 的依赖数组有什么作用？",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["React", "useEffect", "Hooks"],
+      "expected_points": [
+        "依赖数组控制副作用函数的执行时机",
+        "空数组通常表示组件挂载后执行一次",
+        "依赖缺失可能导致闭包旧值或逻辑错误"
+      ]
+    },
+    {
+      "question": "浏览器从输入 URL 到页面展示经历了哪些步骤？",
+      "difficulty": "中等",
+      "type": "链路理解题",
+      "tags": ["浏览器", "网络", "渲染"],
+      "expected_points": [
+        "DNS 解析、TCP/TLS 建连和 HTTP 请求",
+        "浏览器解析 HTML、CSS 和 JavaScript",
+        "构建渲染树、布局、绘制和合成"
+      ]
+    },
+    {
+      "question": "如何优化首屏加载速度？",
+      "difficulty": "中等",
+      "type": "性能优化题",
+      "tags": ["性能优化", "首屏", "资源加载"],
+      "expected_points": [
+        "减少首屏资源体积和请求数量",
+        "使用懒加载、代码分割和缓存",
+        "优化图片、字体和关键渲染路径"
+      ]
+    },
+    {
+      "question": "请解释事件循环、宏任务和微任务。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["JavaScript", "事件循环", "异步"],
+      "expected_points": [
+        "JavaScript 通过事件循环调度异步任务",
+        "宏任务包括 setTimeout、I/O 等",
+        "微任务包括 Promise 回调，通常在当前宏任务结束后优先执行"
+      ]
+    }
+  ],
+  "算法工程师": [
+    {
+      "question": "请解释过拟合和欠拟合，以及常见解决方法。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["机器学习", "过拟合", "泛化"],
+      "expected_points": [
+        "过拟合是训练集表现好但泛化差",
+        "欠拟合是模型无法充分学习数据规律",
+        "可通过正则化、数据增强、调整模型复杂度等方式改善"
+      ]
+    },
+    {
+      "question": "Transformer 中 self-attention 的核心思想是什么？",
+      "difficulty": "中等",
+      "type": "模型原理题",
+      "tags": ["Transformer", "Attention", "深度学习"],
+      "expected_points": [
+        "每个 token 根据 Query、Key、Value 与其他 token 建立关联",
+        "通过注意力权重聚合上下文信息",
+        "支持并行计算并捕获长距离依赖"
+      ]
+    },
+    {
+      "question": "如何评估一个二分类模型的效果？",
+      "difficulty": "基础",
+      "type": "评估指标题",
+      "tags": ["分类", "评估指标", "机器学习"],
+      "expected_points": [
+        "可使用准确率、精确率、召回率、F1、AUC 等指标",
+        "类别不平衡时不能只看准确率",
+        "应结合业务目标选择指标"
+      ]
+    },
+    {
+      "question": "请说明梯度下降的基本过程。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["优化算法", "梯度下降", "机器学习"],
+      "expected_points": [
+        "根据损失函数梯度方向更新参数",
+        "学习率控制每次更新步长",
+        "目标是逐步降低损失函数值"
+      ]
+    }
+  ],
+  "Golang 开发": [
+    {
+      "question": "Go 中 goroutine 和线程有什么区别？",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["Go", "goroutine", "并发"],
+      "expected_points": [
+        "goroutine 是 Go 运行时管理的轻量级执行单元",
+        "线程由操作系统调度，创建和切换成本更高",
+        "Go 运行时会将多个 goroutine 调度到线程上执行"
+      ]
+    },
+    {
+      "question": "请解释 channel 的作用，以及无缓冲 channel 和有缓冲 channel 的区别。",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["Go", "channel", "并发"],
+      "expected_points": [
+        "channel 用于 goroutine 之间通信和同步",
+        "无缓冲 channel 发送和接收需要同时准备好",
+        "有缓冲 channel 在缓冲未满或非空时可异步发送或接收"
+      ]
+    },
+    {
+      "question": "Go 的 interface 是什么？空接口一般用在什么场景？",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["Go", "interface", "类型系统"],
+      "expected_points": [
+        "interface 定义一组方法集合",
+        "类型只要实现方法集合就隐式实现接口",
+        "空接口可以表示任意类型，但需要谨慎使用类型断言"
+      ]
+    },
+    {
+      "question": "如何定位一个 Go 服务中的 goroutine 泄漏问题？",
+      "difficulty": "进阶",
+      "type": "场景排查题",
+      "tags": ["Go", "goroutine", "pprof"],
+      "expected_points": [
+        "通过监控确认 goroutine 数量持续上涨",
+        "使用 pprof 查看 goroutine 堆栈",
+        "定位阻塞在 channel、锁、网络 IO 或未取消 context 的位置"
+      ]
+    },
+    {
+      "question": "请补全代码：两个 goroutine 分别向同一个 channel 发送 hello 和 world，主 goroutine 接收并打印两条消息，最后正常结束。",
+      "difficulty": "中等",
+      "type": "代码补全题",
+      "tags": ["Go", "goroutine", "channel"],
+      "expected_points": [
+        "创建 channel 并启动两个 goroutine",
+        "主 goroutine 接收两次消息",
+        "保证程序不会提前退出或死锁"
+      ]
+    },
+    {
+      "question": "线上 Go 服务 CPU 突然升高，你会如何排查？",
+      "difficulty": "进阶",
+      "type": "场景排查题",
+      "tags": ["Go", "pprof", "性能排查"],
+      "expected_points": [
+        "先通过监控确认 CPU 升高时间和影响范围",
+        "使用 pprof 采集 CPU profile",
+        "结合火焰图和代码定位热点函数"
+      ]
+    }
+  ],
+  "AI Agent 开发": [
+    {
+      "question": "什么是 AI Agent？它和普通聊天机器人的区别是什么？",
+      "difficulty": "基础",
+      "type": "基础概念题",
+      "tags": ["AI Agent", "LLM", "聊天机器人"],
+      "expected_points": [
+        "AI Agent 不只是回复文本，还围绕目标进行决策和行动",
+        "Agent 通常具备任务规划、记忆和工具使用能力",
+        "普通聊天机器人更偏被动问答"
+      ]
+    },
+    {
+      "question": "请解释 Prompt、Memory 和 Tool Use 在 Agent 中分别负责什么。",
+      "difficulty": "基础",
+      "type": "组件理解题",
+      "tags": ["Prompt", "Memory", "Tool Use"],
+      "expected_points": [
+        "Prompt 定义角色、目标、行为边界和输出格式",
+        "Memory 用于保留上下文或长期偏好",
+        "Tool Use 让 Agent 调用外部能力完成任务"
+      ]
+    },
+    {
+      "question": "LangChain 在 Agent 项目中通常解决什么问题？",
+      "difficulty": "基础",
+      "type": "框架理解题",
+      "tags": ["LangChain", "Agent", "LLM应用"],
+      "expected_points": [
+        "封装模型调用和消息格式",
+        "组织 Prompt、Memory、Tool、Chain 等模块",
+        "降低构建 LLM 应用流程的复杂度"
+      ]
+    },
+    {
+      "question": "如果要做一个 AI 面试官 Agent，你会如何设计它的核心流程？",
+      "difficulty": "中等",
+      "type": "系统设计题",
+      "tags": ["AI Agent", "系统设计", "面试系统"],
+      "expected_points": [
+        "先选择岗位、难度和题目来源",
+        "AI 提问后根据用户回答评分并追问",
+        "面试结束后生成总结报告和复习建议"
+      ]
+    },
+    {
+      "question": "为什么 Agent 需要记忆？短期记忆和长期记忆分别适合保存什么？",
+      "difficulty": "中等",
+      "type": "组件理解题",
+      "tags": ["Memory", "上下文", "Agent"],
+      "expected_points": [
+        "记忆让 Agent 能理解上下文并保持连续性",
+        "短期记忆适合保存当前会话内容",
+        "长期记忆适合保存用户偏好、历史表现和稳定信息"
+      ]
+    },
+    {
+      "question": "如果 AI 面试官给出的评分不稳定，你会如何优化？",
+      "difficulty": "进阶",
+      "type": "场景优化题",
+      "tags": ["Prompt Engineering", "评分", "LLM应用"],
+      "expected_points": [
+        "明确评分维度和分数标准",
+        "给出固定输出格式和参考样例",
+        "引入题目参考要点或人工标注标准作为评分依据"
+      ]
+    }
+  ]
+}

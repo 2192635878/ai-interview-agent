@@ -27,7 +27,8 @@
 
 - 支持 Java 后端、Python 后端、Golang、前端、算法工程师、AI Agent 等岗位方向。
 - 支持学习模式和面试模式，分别面向知识补齐和真实面试训练。
-- 支持本地题库、AI 动态生成、混合模式三种题目来源。
+- 支持结构化本地面试题库、AI 动态生成、混合模式三种题目来源。
+- 支持上传 PDF/TXT/MD 简历，AI 可结合项目经历和技能栈生成针对性问题。
 - 支持 DeepSeek Flash / Pro 模型切换。
 - 支持 DeepSeek 思考模式开关和思考强度选择。
 - 支持多轮上下文对话，AI 可根据历史回答继续追问。
@@ -40,7 +41,9 @@
 - 使用 LangChain 的 `ChatOpenAI` 接入 DeepSeek OpenAI 兼容接口，统一管理模型调用。
 - 通过 Prompt Engineering 约束 AI 面试官的角色、提问方式、评分格式和总结报告结构。
 - 基于 `st.session_state` 实现单次会话内的多轮上下文记忆。
+- 将题库从代码中解耦为 `data/question_bank.json`，按岗位、难度、题型、标签和参考要点组织问题。
 - 将题目来源抽象为本地题库、LLM 动态生成和混合模式，提升出题灵活性。
+- 使用 `pypdf` 解析用户上传的 PDF 简历，并将简历摘要作为上下文注入面试 Prompt。
 - 对在线演示版的 API Key 做输入校验，避免占位符或中文内容触发请求错误。
 - 使用 Streamlit Community Cloud 部署，提供可公开访问的在线演示地址。
 
@@ -49,6 +52,7 @@
 - Python
 - Streamlit
 - LangChain
+- pypdf
 - DeepSeek API
 
 ## 本地运行
@@ -123,7 +127,6 @@ BASE_URL = "https://api.deepseek.com"
 ## 后续规划
 
 - 增加固定面试轮次和“继续下一题”按钮，让流程更结构化。
-- 增加简历解析功能，根据用户简历生成针对性问题。
 - 接入 RAG 面经知识库，从面经、岗位 JD 和学习笔记中检索问题。
 - 使用 SQLite 或 Redis 保存历史面试记录。
 - 增加 Dockerfile，支持 Zeabur 等平台容器化部署。

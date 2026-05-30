@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pypdf import PdfReader
 
 
 load_dotenv()
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_MODEL = "deepseek-v4-flash"
+QUESTION_BANK_PATH = Path(__file__).parent / "data" / "question_bank.json"
 TRAINING_MODES = ["学习模式", "面试模式"]
 QUESTION_SOURCES = ["本地题库", "AI 动态生成", "混合模式"]
 MODEL_OPTIONS: Dict[str, str] = {
@@ -20,45 +24,7 @@ MODEL_OPTIONS: Dict[str, str] = {
     "DeepSeek V4 Pro（质量更高，适合演示）": "deepseek-v4-pro",
 }
 REASONING_EFFORTS = ["high", "max"]
-
-QUESTION_BANK: Dict[str, List[str]] = {
-    "Java 后端开发": [
-        "请解释 Java 中 HashMap 的扩容机制，以及为什么容量通常是 2 的幂。",
-        "Spring Boot 自动配置的核心原理是什么？",
-        "MySQL 索引失效常见原因有哪些？请结合实际 SQL 举例。",
-        "如何设计一个简单的登录鉴权流程？",
-    ],
-    "Python 后端开发": [
-        "Python 的 GIL 是什么？它对多线程性能有什么影响？",
-        "FastAPI 和 Flask 的主要区别是什么？",
-        "如何定位一个接口响应变慢的问题？",
-        "请说明常见的数据库事务隔离级别。",
-    ],
-    "前端开发": [
-        "React 中 useEffect 的依赖数组有什么作用？",
-        "浏览器从输入 URL 到页面展示经历了哪些步骤？",
-        "如何优化首屏加载速度？",
-        "请解释事件循环、宏任务和微任务。",
-    ],
-    "算法工程师": [
-        "请解释过拟合和欠拟合，以及常见解决方法。",
-        "Transformer 中 self-attention 的核心思想是什么？",
-        "如何评估一个二分类模型的效果？",
-        "请说明梯度下降的基本过程。",
-    ],
-    "Golang 开发": [
-        "Go 中 goroutine 和线程有什么区别？",
-        "请解释 channel 的作用，以及无缓冲 channel 和有缓冲 channel 的区别。",
-        "Go 的 interface 是什么？空接口一般用在什么场景？",
-        "如何定位一个 Go 服务中的 goroutine 泄漏问题？",
-    ],
-    "AI Agent 开发": [
-        "什么是 AI Agent？它和普通聊天机器人的区别是什么？",
-        "请解释 Prompt、Memory 和 Tool Use 在 Agent 中分别负责什么。",
-        "LangChain 在 Agent 项目中通常解决什么问题？",
-        "如果要做一个 AI 面试官 Agent，你会如何设计它的核心流程？",
-    ],
-}
+MAX_RESUME_CONTEXT_CHARS = 4000
 
 
 def read_setting(name: str, default: str = "") -> str:
@@ -68,6 +34,12 @@ def read_setting(name: str, default: str = "") -> str:
     except Exception:
         value = ""
     return str(value or os.getenv(name, default))
+
+
+@st.cache_data
+def load_question_bank() -> Dict[str, List[dict]]:
+    with QUESTION_BANK_PATH.open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def validate_api_key(api_key: str) -> Optional[str]:
@@ -81,6 +53,24 @@ def validate_api_key(api_key: str) -> Optional[str]:
     except UnicodeEncodeError:
         return "API Key 只能包含英文、数字和符号，请不要填中文说明文字。"
     return None
+
+
+def extract_resume_text(uploaded_file) -> str:
+    if uploaded_file is None:
+        return ""
+
+    if uploaded_file.type == "application/pdf":
+        reader = PdfReader(uploaded_file)
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages).strip()
+
+    raw_text = uploaded_file.getvalue().decode("utf-8", errors="ignore")
+    return raw_text.strip()
+
+
+def trim_resume_text(resume_text: str) -> str:
+    cleaned_text = "\n".join(line.strip() for line in resume_text.splitlines() if line.strip())
+    return cleaned_text[:MAX_RESUME_CONTEXT_CHARS]
 
 
 def build_llm(
@@ -148,6 +138,7 @@ def build_system_prompt(
     training_mode: str,
     question_source: str,
     question_context: str,
+    resume_context: str,
 ) -> str:
     mode_instruction = build_mode_instruction(training_mode)
     source_instruction = build_source_instruction(question_source)
@@ -173,28 +164,57 @@ def build_system_prompt(
 
 可参考的本地题库：
 {question_context}
+
+候选人简历内容（如果为空则忽略）：
+{resume_context}
+
+如果候选人上传了简历，你需要优先结合简历中的项目经历、技术栈和求职方向进行提问与追问，避免只问泛泛的概念题。
 """.strip()
 
 
-def question_context_for(role: str) -> str:
-    questions = QUESTION_BANK.get(role, [])
-    return "\n".join(f"- {question}" for question in questions)
+def question_context_for(
+    question_bank: Dict[str, List[dict]],
+    role: str,
+    difficulty: str,
+) -> str:
+    questions = question_bank.get(role, [])
+    filtered_questions = [
+        question
+        for question in questions
+        if question.get("difficulty") in {difficulty, "基础"}
+    ]
+    selected_questions = filtered_questions or questions
+
+    lines = []
+    for question in selected_questions:
+        expected_points = "；".join(question.get("expected_points", []))
+        tags = "、".join(question.get("tags", []))
+        lines.append(
+            "- "
+            f"题目：{question.get('question', '')}\n"
+            f"  难度：{question.get('difficulty', '')}；类型：{question.get('type', '')}；标签：{tags}\n"
+            f"  参考要点：{expected_points}"
+        )
+    return "\n".join(lines)
 
 
 def ensure_messages(
+    question_bank: Dict[str, List[dict]],
     role: str,
     difficulty: str,
     training_mode: str,
     question_source: str,
+    resume_context: str,
 ) -> None:
-    current_config = (role, difficulty, training_mode, question_source)
-    question_context = question_context_for(role)
+    current_config = (role, difficulty, training_mode, question_source, resume_context)
+    question_context = question_context_for(question_bank, role, difficulty)
     system_prompt = build_system_prompt(
         role=role,
         difficulty=difficulty,
         training_mode=training_mode,
         question_source=question_source,
         question_context=question_context,
+        resume_context=resume_context,
     )
     if (
         "messages" not in st.session_state
@@ -329,12 +349,39 @@ st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout=
 st.title("AI 模拟面试官")
 st.caption("基于 Streamlit、LangChain 和大模型 API 的垂直领域 AI Agent 第一版")
 
+question_bank = load_question_bank()
+
 with st.sidebar:
     st.header("面试设置")
-    role = st.selectbox("目标岗位", list(QUESTION_BANK.keys()))
+    role = st.selectbox("目标岗位", list(question_bank.keys()))
     difficulty = st.selectbox("面试难度", ["基础", "中等", "进阶"])
     training_mode = st.selectbox("训练模式", TRAINING_MODES)
     question_source = st.selectbox("题目来源", QUESTION_SOURCES)
+
+    st.divider()
+    st.header("简历上传")
+    resume_file = st.file_uploader(
+        "上传简历（可选）",
+        type=["pdf", "txt", "md"],
+        help="上传后，AI 会结合简历中的项目经历和技能进行针对性提问。",
+    )
+    resume_context = ""
+    if resume_file is not None:
+        try:
+            resume_context = trim_resume_text(extract_resume_text(resume_file))
+            if resume_context:
+                st.success(f"已解析简历内容，约 {len(resume_context)} 个字符。")
+                with st.expander("预览解析结果"):
+                    st.text_area(
+                        "简历文本",
+                        value=resume_context,
+                        height=180,
+                        label_visibility="collapsed",
+                    )
+            else:
+                st.warning("没有从简历中解析到有效文本，请尝试上传文本版 PDF、TXT 或 MD 文件。")
+        except Exception as error:
+            st.warning(f"简历解析失败：{error}")
 
     st.divider()
     st.header("模型配置")
@@ -379,7 +426,7 @@ with st.sidebar:
         st.session_state.pop("interview_report", None)
         st.rerun()
 
-ensure_messages(role, difficulty, training_mode, question_source)
+ensure_messages(question_bank, role, difficulty, training_mode, question_source, resume_context)
 
 if not st.session_state.get("interview_started"):
     st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。")
@@ -390,6 +437,7 @@ if not st.session_state.get("interview_started"):
 - 在学习模式下先补基础，再做练习题。
 - 在面试模式下模拟真实追问和评分。
 - 切换本地题库、AI 动态生成或混合出题。
+- 上传简历，让 AI 根据项目经历和技能进行针对性提问。
 - 导出本次面试记录，方便复盘。
 """.strip()
     )
