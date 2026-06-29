@@ -14,6 +14,13 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_openai import ChatOpenAI
 from pypdf import PdfReader
 
+import agent.core as agent_core
+import agent.memory as agent_memory
+from agent.skills import load_skill
+from agent.state import AgentState
+from agent.tools import build_default_tools
+from rag import KeywordRetriever, load_knowledge_chunks
+
 
 load_dotenv()
 
@@ -99,6 +106,7 @@ def init_history_db() -> None:
             )
             """
         )
+        agent_memory.init_memory_db(connection)
 
 
 def create_history_session(
@@ -219,6 +227,10 @@ def restore_history_session(session_id: int) -> None:
     st.session_state.pending_history_messages = [
         {"role": message["role"], "content": message["content"]} for message in messages
     ]
+    with connect_history_db() as connection:
+        restored_state = agent_memory.load_agent_state(connection, session_id)
+    if restored_state is not None:
+        st.session_state.pending_agent_state = restored_state
 
 
 def rows_to_messages(rows: List[dict]) -> List[BaseMessage]:
@@ -235,6 +247,17 @@ def rows_to_messages(rows: List[dict]) -> List[BaseMessage]:
 def load_question_bank() -> Dict[str, List[dict]]:
     with QUESTION_BANK_PATH.open("r", encoding="utf-8") as file:
         return json.load(file)
+
+
+@st.cache_data
+def load_rag_chunks() -> List[dict]:
+    return [chunk.__dict__ for chunk in load_knowledge_chunks()]
+
+
+def build_retriever() -> KeywordRetriever:
+    from rag import KnowledgeChunk
+
+    return KeywordRetriever([KnowledgeChunk(**chunk) for chunk in load_rag_chunks()])
 
 
 def validate_question_bank(question_bank: object) -> tuple[bool, str]:
@@ -441,15 +464,43 @@ def ensure_messages(
     previous_config = st.session_state.get("interview_config")
     is_config_changed = previous_config is not None and previous_config != current_config
     is_restoring_history = st.session_state.get("pending_history_messages") is not None
-    question_context = question_context_for(question_bank, role, difficulty)
-    system_prompt = build_system_prompt(
+    state = st.session_state.get("agent_state")
+    if state is None or previous_config != current_config:
+        state = AgentState(
+            role=role,
+            difficulty=difficulty,
+            training_mode=training_mode,
+            question_source=question_source,
+        )
+        st.session_state.agent_state = state
+    else:
+        state.role = role
+        state.difficulty = difficulty
+        state.training_mode = training_mode
+        state.question_source = question_source
+
+    skill = load_skill(role)
+    retriever = build_retriever()
+    initial_chunks = retriever.search(
+        query=f"{role} {difficulty} {' '.join(skill.focus_areas)}",
         role=role,
-        difficulty=difficulty,
-        training_mode=training_mode,
-        question_source=question_source,
+        tags=skill.rag_tags,
+        top_k=3,
+    )
+    with connect_history_db() as connection:
+        profile = agent_memory.load_user_profile(connection, client_id)
+    question_context = agent_core.question_context_for(question_bank, role, difficulty)
+    system_prompt = agent_core.build_interview_system_prompt(
+        state=state,
         question_context=question_context,
         resume_context=resume_context,
+        profile=profile,
+        skill=skill,
+        retrieved_chunks=initial_chunks,
     )
+    st.session_state.agent_skill = skill
+    st.session_state.agent_profile = profile
+    st.session_state.agent_rag_chunks = initial_chunks
     if (
         "messages" not in st.session_state
         or previous_config != current_config
@@ -583,13 +634,19 @@ def generate_interview_report(
     question_source: str,
     history_text: str,
 ) -> str:
-    report_messages = build_report_prompt(
-        role=role,
-        difficulty=difficulty,
-        training_mode=training_mode,
-        question_source=question_source,
-        history_text=history_text,
-    )
+    state = st.session_state.get("agent_state")
+    if state is not None:
+        with connect_history_db() as connection:
+            profile = agent_memory.load_user_profile(connection, client_id)
+        report_messages = agent_core.build_report_prompt(state=state, history_text=history_text, profile=profile)
+    else:
+        report_messages = build_report_prompt(
+            role=role,
+            difficulty=difficulty,
+            training_mode=training_mode,
+            question_source=question_source,
+            history_text=history_text,
+        )
     return str(llm.invoke(report_messages).content)
 
 
@@ -612,6 +669,31 @@ def save_or_generate_report(
     st.session_state.interview_report = report
     if st.session_state.get("current_session_id"):
         save_history_report(int(st.session_state.current_session_id), report)
+        state = st.session_state.get("agent_state")
+        if state is not None:
+            retriever = build_retriever()
+            tools = build_default_tools(question_bank, retriever)
+            profile_delta = agent_memory.extract_profile_update(state)
+            with connect_history_db() as connection:
+                review_result = tools.call(
+                    "generate_review_plan",
+                    profile={
+                        "weaknesses": profile_delta["weaknesses"],
+                        "strengths": profile_delta["strengths"],
+                        "average_score": profile_delta["average_score"],
+                    },
+                    role=role,
+                )
+                agent_memory.update_user_profile(
+                    connection=connection,
+                    client_id=client_id,
+                    role=role,
+                    average_score=profile_delta["average_score"],
+                    weaknesses=profile_delta["weaknesses"],
+                    strengths=profile_delta["strengths"],
+                    review_plan=review_result.observation.get("review_plan", []),
+                )
+                agent_memory.save_agent_state(connection, int(st.session_state.current_session_id), state)
     return report
 
 
@@ -622,6 +704,8 @@ def start_interview() -> None:
     st.session_state.pop("interview_report", None)
     st.session_state.pop("current_session_id", None)
     st.session_state.pop("pending_history_messages", None)
+    st.session_state.pop("agent_state", None)
+    st.session_state.pop("pending_agent_state", None)
 
 
 st.set_page_config(page_title="AI 模拟面试官", page_icon="🎙️", layout="centered")
@@ -696,6 +780,8 @@ with st.sidebar:
         st.session_state.pop("interview_report", None)
         st.session_state.pop("current_session_id", None)
         st.session_state.pop("pending_history_messages", None)
+        st.session_state.pop("agent_state", None)
+        st.session_state.pop("pending_agent_state", None)
         st.rerun()
 
     st.divider()
@@ -784,6 +870,8 @@ with st.sidebar:
         st.session_state.pop("interview_report", None)
         st.session_state.pop("current_session_id", None)
         st.session_state.pop("pending_history_messages", None)
+        st.session_state.pop("agent_state", None)
+        st.session_state.pop("pending_agent_state", None)
         st.rerun()
 
     st.divider()
@@ -808,6 +896,10 @@ if st.session_state.get("pending_history_messages") is not None:
     restored_messages = rows_to_messages(st.session_state.pending_history_messages)
     st.session_state.messages = [st.session_state.messages[0], *restored_messages]
     st.session_state.pop("pending_history_messages", None)
+
+if st.session_state.get("pending_agent_state") is not None:
+    st.session_state.agent_state = st.session_state.pending_agent_state
+    st.session_state.pop("pending_agent_state", None)
 
 if not st.session_state.get("interview_started"):
     st.info("请先在侧边栏填写 DeepSeek API Key，然后点击 `开始面试`。如果刚切换了岗位、难度或题目来源，需要重新开始一轮新面试。")
@@ -851,6 +943,10 @@ if len(st.session_state.messages) == 1:
         first_prompt = HumanMessage(content=start_text)
         first_ai_message = ask_llm(llm, [*st.session_state.messages, first_prompt])
         st.session_state.messages.append(first_ai_message)
+        if st.session_state.get("agent_state"):
+            st.session_state.agent_state.record_question(str(first_ai_message.content))
+            with connect_history_db() as connection:
+                agent_memory.save_agent_state(connection, session_id, st.session_state.agent_state)
         save_history_message(session_id, first_ai_message)
 
 render_chat(st.session_state.messages)
@@ -868,11 +964,28 @@ with control_col_1:
     if st.button("换/继续下一题", use_container_width=True):
         session_id = ensure_history_session(client_id, role, difficulty, training_mode, question_source)
         with st.spinner("面试官正在准备下一题..."):
+            retriever = build_retriever()
+            skill = st.session_state.get("agent_skill") or load_skill(role)
+            state = st.session_state.get("agent_state")
+            if state is not None:
+                tools = build_default_tools(question_bank, retriever)
+                question_result = tools.call(
+                    "search_question_bank",
+                    role=role,
+                    difficulty=difficulty,
+                    tags=skill.rag_tags,
+                    top_k=3,
+                )
+                state.record_tool_call(question_result)
             next_ai_message = ask_llm(
                 llm,
-                [*st.session_state.messages, build_next_question_prompt(round_limit)],
+                [*st.session_state.messages, agent_core.build_next_question_prompt(round_limit)],
             )
             st.session_state.messages.append(next_ai_message)
+            if state is not None:
+                state.record_question(str(next_ai_message.content))
+                with connect_history_db() as connection:
+                    agent_memory.save_agent_state(connection, session_id, state)
             save_history_message(session_id, next_ai_message)
             st.rerun()
 
@@ -907,8 +1020,25 @@ if answer:
 
     with st.chat_message("assistant"):
         with st.spinner("面试官正在评价你的回答..."):
-            ai_message = ask_llm(llm, st.session_state.messages)
+            state = st.session_state.get("agent_state")
+            if state is None:
+                state = AgentState(role=role, difficulty=difficulty, training_mode=training_mode, question_source=question_source)
+                st.session_state.agent_state = state
+            retriever = build_retriever()
+            tools = build_default_tools(question_bank, retriever)
+            skill = st.session_state.get("agent_skill") or load_skill(role)
+            ai_message = agent_core.run_answer_turn(
+                llm=llm,
+                messages=st.session_state.messages,
+                state=state,
+                question_bank=question_bank,
+                tools=tools,
+                skill=skill,
+                round_limit_reached=round_limit_reached,
+            )
             st.session_state.messages.append(ai_message)
+            with connect_history_db() as connection:
+                agent_memory.save_agent_state(connection, session_id, state)
             save_history_message(session_id, ai_message)
             st.markdown(str(ai_message.content))
     st.rerun()
@@ -931,6 +1061,34 @@ else:
     st.info("完成至少一轮回答后，可以结束面试并生成报告。")
 
 with st.sidebar:
+    st.divider()
+    st.header("Agent 观测")
+    current_state = st.session_state.get("agent_state")
+    if current_state is None:
+        st.caption("开始面试后会展示 AgentState、长期记忆和工具调用。")
+    else:
+        state_summary = {
+            "current_question": current_state.current_question,
+            "asked_count": len(current_state.asked_questions),
+            "next_action": current_state.next_action,
+            "weaknesses": current_state.weaknesses[:5],
+            "strengths": current_state.strengths[:5],
+            "tool_calls": len(current_state.tool_calls),
+        }
+        st.json(state_summary)
+        recent_tools = [tool_call.__dict__ for tool_call in current_state.tool_calls[-3:]]
+        with st.expander("最近工具调用"):
+            st.json(recent_tools)
+        profile = st.session_state.get("agent_profile", {})
+        with st.expander("长期记忆画像"):
+            st.json(profile)
+        rag_chunks = st.session_state.get("agent_rag_chunks", [])
+        with st.expander("RAG 检索上下文"):
+            for chunk in rag_chunks:
+                st.markdown(f"**{chunk.get('title', '')}**")
+                st.caption(f"source: {chunk.get('source', 'local')} | score: {chunk.get('score', 0)}")
+                st.write(chunk.get("content", ""))
+
     st.divider()
     st.header("对话记录")
     st.caption("当前对话会自动保存到历史面试记录，也可以导出为 Markdown。")

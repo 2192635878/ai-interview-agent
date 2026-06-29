@@ -1,0 +1,65 @@
+[
+  {
+    "title": "Workflow 与 Agent 的区别",
+    "role": "AI Agent 开发",
+    "tags": ["AI Agent", "Workflow", "AgentState"],
+    "source": "local-note",
+    "content": "Workflow 是开发者预先写死步骤，模型在固定节点生成内容；Agent 则围绕目标、状态和工具反馈动态决定下一步。AI 面试官第一版如果主要由按钮和固定流程控制，更接近 workflow；引入 AgentState、Tool Use、Observation 和 next_action 后，才更像轻量 Agent。"
+  },
+  {
+    "title": "有限步 ReAct 在面试系统中的落地",
+    "role": "AI Agent 开发",
+    "tags": ["ReAct", "Tool Use", "Observation"],
+    "source": "local-note",
+    "content": "ReAct 是 Reasoning and Acting 的组合。工程落地时不一定要无限循环，可以限制为每轮最多调用评分、检索、画像更新等工具，再根据 observation 选择 ask_followup、ask_new_question、explain_concept、lower_difficulty 或 finish_report。"
+  },
+  {
+    "title": "RAG 面试知识库",
+    "role": "AI Agent 开发",
+    "tags": ["RAG", "面经", "JD"],
+    "source": "local-note",
+    "content": "RAG 可以从面经、岗位 JD、学习笔记和题库参考要点中检索上下文，让问题更贴合岗位和用户薄弱点。轻量版本可以先用关键词/BM25 检索，不依赖 embedding 服务，保证在线演示稳定。"
+  },
+  {
+    "title": "Memory 分层",
+    "role": "AI Agent 开发",
+    "tags": ["Memory", "User Profile", "AgentState"],
+    "source": "local-note",
+    "content": "短期记忆保存当前会话、已问问题、当前题目和评分；长期记忆保存用户偏好岗位、历史薄弱点、平均分、常错知识点和复习计划。报告生成后可以抽取长期记忆，避免把所有历史对话都塞进 prompt。"
+  },
+  {
+    "title": "Python 接口变慢排查",
+    "role": "Python 后端开发",
+    "tags": ["Python", "性能排查", "数据库"],
+    "source": "local-note",
+    "content": "定位接口变慢时，先确认影响范围和时间段，再看应用日志、数据库慢查询、外部依赖耗时和资源指标。进一步可用 profiling、链路追踪或采样火焰图定位瓶颈，最后用指标验证优化是否有效。"
+  },
+  {
+    "title": "Go goroutine 泄漏排查",
+    "role": "Golang 开发",
+    "tags": ["Go", "goroutine", "pprof"],
+    "source": "local-note",
+    "content": "goroutine 泄漏通常表现为 goroutine 数持续上涨。排查时先通过监控确认趋势，再使用 pprof 查看 goroutine 堆栈，重点关注阻塞在 channel、锁、网络 IO、定时器或未取消 context 的位置。"
+  },
+  {
+    "title": "MySQL 索引失效",
+    "role": "Java 后端开发",
+    "tags": ["MySQL", "SQL优化", "后端"],
+    "source": "local-note",
+    "content": "常见索引失效原因包括在索引列上使用函数、隐式类型转换、联合索引不满足最左前缀、like 以通配符开头、范围查询后续列利用不足等。回答时最好结合具体 SQL 和 explain 分析。"
+  },
+  {
+    "title": "前端首屏性能优化",
+    "role": "前端开发",
+    "tags": ["前端", "性能优化", "浏览器"],
+    "source": "local-note",
+    "content": "首屏优化通常从减少关键资源体积、降低请求数量、图片和字体优化、代码分割、缓存、SSR/预渲染、关键 CSS 和懒加载入手。要结合 LCP、FCP、TTFB 等指标验证效果。"
+  },
+  {
+    "title": "二分类模型评估",
+    "role": "算法工程师",
+    "tags": ["模型评估", "机器学习", "分类"],
+    "source": "local-note",
+    "content": "二分类评估不能只看准确率，尤其类别不平衡时需要结合 precision、recall、F1、AUC、PR-AUC 和业务成本。阈值选择应结合误报、漏报代价和实际业务目标。"
+  }
+]

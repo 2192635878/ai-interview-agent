@@ -1,0 +1,22 @@
+[
+  {"role": "AI Agent 开发", "difficulty": "基础", "question": "什么是 AI Agent？", "answer": "Agent 不只是聊天，它会围绕目标做决策，也可以调用工具和使用记忆。", "expected_weakness": "评测"},
+  {"role": "AI Agent 开发", "difficulty": "中等", "question": "ReAct 如何用于面试系统？", "answer": "可以先分析用户回答，然后调用评分工具，根据结果决定追问还是换题。", "expected_weakness": "observation"},
+  {"role": "AI Agent 开发", "difficulty": "中等", "question": "为什么需要 Memory？", "answer": "为了保存上下文和长期薄弱点，下次面试可以继续针对性训练。", "expected_weakness": "短期记忆"},
+  {"role": "AI Agent 开发", "difficulty": "进阶", "question": "如何评测 Agent？", "answer": "看它能不能完成任务。", "expected_weakness": "具体指标"},
+  {"role": "Python 后端开发", "difficulty": "中等", "question": "如何定位接口变慢？", "answer": "先看日志，再看数据库慢 SQL 和外部接口耗时，必要时 profiling。", "expected_weakness": "验证"},
+  {"role": "Python 后端开发", "difficulty": "基础", "question": "GIL 是什么？", "answer": "GIL 是全局解释器锁，同一时刻限制 Python 字节码执行。", "expected_weakness": "IO"},
+  {"role": "Java 后端开发", "difficulty": "中等", "question": "MySQL 索引失效原因？", "answer": "比如对索引列使用函数，联合索引不满足最左前缀，like 百分号开头。", "expected_weakness": "SQL 示例"},
+  {"role": "Java 后端开发", "difficulty": "基础", "question": "HashMap 为什么容量是 2 的幂？", "answer": "为了用位运算计算下标，扩容时也更容易重新分布。", "expected_weakness": "负载因子"},
+  {"role": "Golang 开发", "difficulty": "进阶", "question": "goroutine 泄漏怎么排查？", "answer": "通过监控看数量，然后用 pprof 看堆栈，找 channel 或 context 没取消的位置。", "expected_weakness": "复现"},
+  {"role": "Golang 开发", "difficulty": "基础", "question": "channel 有什么作用？", "answer": "用于 goroutine 通信和同步，无缓冲需要发送接收同时准备。", "expected_weakness": "有缓冲"},
+  {"role": "前端开发", "difficulty": "基础", "question": "useEffect 依赖数组作用？", "answer": "控制副作用执行时机，空数组一般只在挂载后执行一次。", "expected_weakness": "闭包"},
+  {"role": "前端开发", "difficulty": "中等", "question": "如何优化首屏？", "answer": "减少资源体积，懒加载，代码分割，图片压缩和缓存。", "expected_weakness": "指标"},
+  {"role": "算法工程师", "difficulty": "基础", "question": "过拟合是什么？", "answer": "训练集好但测试集差，可以用正则化、数据增强和降低模型复杂度。", "expected_weakness": "验证集"},
+  {"role": "算法工程师", "difficulty": "基础", "question": "二分类怎么评估？", "answer": "可以看准确率、精确率、召回率、F1 和 AUC。", "expected_weakness": "类别不平衡"},
+  {"role": "AI Agent 开发", "difficulty": "基础", "question": "Tool Use 的价值？", "answer": "让模型调用确定性工具，减少幻觉，也方便结构化保存结果。", "expected_weakness": "工具边界"},
+  {"role": "AI Agent 开发", "difficulty": "中等", "question": "Skill 如何设计？", "answer": "把不同岗位的考察重点、评分标准和追问策略放在配置里。", "expected_weakness": "加载机制"},
+  {"role": "Python 后端开发", "difficulty": "进阶", "question": "内存上涨怎么排查？", "answer": "看监控趋势，检查全局缓存和对象引用，用 tracemalloc。", "expected_weakness": "资源释放"},
+  {"role": "Java 后端开发", "difficulty": "进阶", "question": "接口响应时间突然升高？", "answer": "先看监控确认范围，再查日志、链路追踪、慢 SQL、缓存和网络。", "expected_weakness": "瓶颈隔离"},
+  {"role": "Golang 开发", "difficulty": "进阶", "question": "CPU 升高怎么排查？", "answer": "用 pprof 采集 CPU profile，看火焰图定位热点函数。", "expected_weakness": "时间窗口"},
+  {"role": "前端开发", "difficulty": "基础", "question": "事件循环是什么？", "answer": "JavaScript 通过事件循环调度宏任务和微任务，Promise 是微任务。", "expected_weakness": "执行顺序"}
+]

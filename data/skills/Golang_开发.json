@@ -1,0 +1,21 @@
+{
+  "name": "Golang 后端面试 Skill",
+  "role": "Golang 开发",
+  "focus_areas": ["goroutine", "channel", "interface", "pprof", "并发排查", "后端接口"],
+  "rubric": {
+    "accuracy": "是否准确理解 Go 运行时、并发模型和类型系统。",
+    "completeness": "是否覆盖场景、工具、代码层定位和修复策略。",
+    "clarity": "是否能把并发问题讲成可复现、可定位、可验证的流程。"
+  },
+  "followup_strategies": [
+    "追问阻塞、泄漏、竞态和 context 取消。",
+    "要求说明 pprof 的采集和分析步骤。",
+    "让候选人补一段小代码或指出死锁原因。"
+  ],
+  "rag_tags": ["Go", "goroutine", "channel", "pprof"],
+  "difficulty_rules": {
+    "基础": "确认语法、接口和并发基本概念。",
+    "中等": "要求写代码或分析并发流程。",
+    "进阶": "追问线上排障和性能分析。"
+  }
+}

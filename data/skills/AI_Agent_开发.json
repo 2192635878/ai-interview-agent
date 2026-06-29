@@ -1,0 +1,21 @@
+{
+  "name": "AI Agent 面试 Skill",
+  "role": "AI Agent 开发",
+  "focus_areas": ["AgentState", "Tool Use", "ReAct", "RAG", "Memory", "Eval Harness", "工程化落地"],
+  "rubric": {
+    "accuracy": "是否准确区分 workflow、agent、tool、memory、RAG 等概念。",
+    "completeness": "是否能讲出状态、工具、观察、失败恢复、评测等完整闭环。",
+    "clarity": "是否能用项目例子解释，而不是只背概念。"
+  },
+  "followup_strategies": [
+    "追问当前项目为什么第一版更接近 workflow。",
+    "要求候选人把一个工具调用拆成 input、observation 和 next_action。",
+    "要求说明如何评测追问质量和评分稳定性。"
+  ],
+  "rag_tags": ["AI Agent", "ReAct", "Tool Use", "RAG", "Memory", "Eval"],
+  "difficulty_rules": {
+    "基础": "解释核心概念和差异。",
+    "中等": "结合 AI 面试官项目设计模块边界。",
+    "进阶": "讨论评测、失败恢复、可观测性和成本控制。"
+  }
+}

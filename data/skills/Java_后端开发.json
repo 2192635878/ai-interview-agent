@@ -1,0 +1,21 @@
+{
+  "name": "Java 后端面试 Skill",
+  "role": "Java 后端开发",
+  "focus_areas": ["集合", "Spring Boot", "MySQL", "鉴权", "性能排查", "系统设计"],
+  "rubric": {
+    "accuracy": "是否符合 Java、Spring、数据库和后端工程常识。",
+    "completeness": "是否覆盖原理、场景、边界和优化思路。",
+    "clarity": "是否能用结构化语言和具体 SQL/接口例子表达。"
+  },
+  "followup_strategies": [
+    "追问底层原理和为什么这样设计。",
+    "要求结合线上问题排查路径说明。",
+    "要求给出 SQL、接口或配置层面的例子。"
+  ],
+  "rag_tags": ["Java", "Spring", "MySQL", "后端"],
+  "difficulty_rules": {
+    "基础": "先确认概念和常见机制。",
+    "中等": "要求解释框架原理和真实场景。",
+    "进阶": "强调性能、稳定性和系统设计取舍。"
+  }
+}
